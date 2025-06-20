@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Batch Rename Clips</title>
+  <script src="./lib/CSInterface.js"></script>
+  <style>
+    /* Add this for better Mac compatibility */
+    * {
+      box-sizing: border-box;
+    }
+    
+    /* Adjust font rendering for Mac */
+    body {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+  </style>
+  <style>
+    body {
+      background-color: #1e1e1e;
+      color: #f0f0f0;
+      font-family: sans-serif;
+      padding: 20px;
+    }
+
+    h2 {
+      margin-bottom: 16px;
+    }
+
+    label {
+      margin-top: 10px;
+      display: block;
+    }
+
+    input[type="text"],
+    select {
+      padding: 6px;
+      width: 100%;
+      max-width: 320px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      border: 1px solid #444;
+      background-color: #2e2e2e;
+      color: #f0f0f0;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background: #3c99e1;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background: #154770;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .checkbox-group {
+      margin: 10px 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+    }
+
+    .checkbox-item input {
+      margin-right: 5px;
+    }
+
+    .section {
+      border: 1px solid #444;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 4px;
+    }
+
+    .section-title {
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      margin-bottom: 8px;
+      display: block;
+      font-weight: 500;
+    }
+    
+    .input-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .input-row label {
+      margin: 0;
+      min-width: 80px;
+    }
+    
+    .input-row input {
+      flex: 1;
+    }
+    
+    /* Number input styling */
+    input[type="number"] {
+      padding: 8px;
+      width: 100%;
+      max-width: 320px;
+      border-radius: 4px;
+      border: 1px solid #444;
+      background-color: #2e2e2e;
+      color: #f0f0f0;
+      transition: all 0.2s ease-in-out;
+    }
+    
+    input[type="number"]:hover {
+      border-color: #666;
+      box-shadow: 0 0 5px rgba(100, 100, 100, 0.3);
+    }
+    
+    input[type="number"]:focus {
+      outline: none;
+      border-color: #f5c518;
+      box-shadow: 0 0 5px rgba(245, 197, 24, 0.5);
+    }
+    
+    /* Remove spinner buttons from number inputs */
+    input[type="number"]::-webkit-inner-spin-button, 
+    input[type="number"]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+  </style>
+
+  <script>
+    function updateModeUI() {
+      const mode = document.getElementById("renameMode").value;
+
+      // Hide all input fields first
+      document.getElementById("prefixField").classList.add("hidden");
+      document.getElementById("suffixField").classList.add("hidden");
+      document.getElementById("findReplaceFields").classList.add("hidden");
+      document.getElementById("removeField").classList.add("hidden");
+      document.getElementById("removeFrontField").classList.add("hidden");
+      document.getElementById("replaceWithNumbersField").classList.add("hidden");
+      document.getElementById("addNumbersToEndField").classList.add("hidden");
+
+      // Show the appropriate field based on selected mode
+      if (mode === "front") {
+        document.getElementById("prefixField").classList.remove("hidden");
+      } else if (mode === "end") {
+        document.getElementById("suffixField").classList.remove("hidden");
+      } else if (mode === "replace") {
+        document.getElementById("findReplaceFields").classList.remove("hidden");
+      } else if (mode === "remove") {
+        document.getElementById("removeField").classList.remove("hidden");
+      } else if (mode === "removeFront") {
+        document.getElementById("removeFrontField").classList.remove("hidden");
+      } else if (mode === "replaceWithNumbers") {
+        document.getElementById("replaceWithNumbersField").classList.remove("hidden");
+      } else if (mode === "addNumbersToEnd") {
+        document.getElementById("addNumbersToEndField").classList.remove("hidden");
+      }
+    }
+
+    function applyRename() {
+      const mode = document.getElementById("renameMode").value;
+      const prefix = document.getElementById("prefix").value || "";
+      const suffix = document.getElementById("suffix").value || "";
+      const findText = document.getElementById("findText").value || "";
+      const replaceText = document.getElementById("replaceText").value || "";
+      const removeChars = document.getElementById("removeChars").value || "";
+      const removeFrontChars = document.getElementById("removeFrontChars").value || "";
+      
+      // Get values for new functions - preserve the original string format
+      const numberFind = document.getElementById("numberFind").value || "";
+      const numberStartAt = document.getElementById("numberStartAt").value || "1";
+      const endNumberStartAt = document.getElementById("endNumberStartAt").value || "1";
+      
+      // For debugging
+      console.log("Starting number for end numbering:", endNumberStartAt);
+      
+      // Get filter options - only selected now
+      const filterSelected = document.getElementById("filterSelected").checked;
+      
+      // Get item types to rename
+      const includeSequences = document.getElementById("includeSequences").checked;
+      const includeClips = document.getElementById("includeClips").checked;
+      const includeBins = document.getElementById("includeBins").checked;
+      const includeMisc = document.getElementById("includeMisc").checked;
+
+      const args = {
+        mode,
+        prefix,
+        suffix,
+        findText,
+        replaceText,
+        removeChars,
+        removeFrontChars,
+        numberFind,
+        numberStartAt,
+        endNumberStartAt,
+        filters: {
+          selected: filterSelected
+        },
+        types: {
+          sequences: includeSequences,
+          clips: includeClips,
+          bins: includeBins,
+          misc: includeMisc
+        }
+      };
+
+      // For debugging - log the args to console
+      console.log("Rename args:", args);
+
+      // Show loading state
+      const button = document.querySelector('button');
+      const originalText = button.textContent;
+      button.textContent = "Processing...";
+      button.disabled = true;
+
+      const cs = new CSInterface();
+      const safeArgs = encodeURIComponent(JSON.stringify(args));
+      
+      cs.evalScript(`renameClips(decodeURIComponent('${safeArgs}'))`, function(result) {
+        // Reset button state
+        button.textContent = originalText;
+        button.disabled = false;
+        
+        // Show success feedback
+        if (result && result.indexOf("Error") !== -1) {
+          showFeedback(result, false);
+        } else {
+          showFeedback("Rename operation completed successfully!", true);
+        }
+      });
+    }
+
+    // Add this function for a smooth page load animation
+    document.addEventListener('DOMContentLoaded', function() {
+      // Fade in the UI elements
+      const sections = document.querySelectorAll('.section, button, select, label');
+      sections.forEach((section, index) => {
+        section.style.opacity = '0';
+        section.style.transform = 'translateY(10px)';
+        section.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        
+        setTimeout(() => {
+          section.style.opacity = '1';
+          section.style.transform = 'translateY(0)';
+        }, 100 + (index * 50));
+      });
+      
+      // Initialize the UI based on the default mode
+      updateModeUI();
+    });
+
+    // Add feedback when button is clicked
+    function showFeedback(message, isSuccess = true) {
+      const feedback = document.getElementById('feedback');
+      feedback.textContent = message;
+      feedback.className = isSuccess ? 'feedback success' : 'feedback error';
+      feedback.style.opacity = '1';
+      
+      setTimeout(() => {
+        feedback.style.opacity = '0';
+      }, 3000);
+    }
+  </script>
+</head>
+
+<body>
+  <h2>Batch Rename Clips</h2>
+  
+  <!-- Add a feedback element for user notifications -->
+  <div id="feedback" class="feedback"></div>
+  
+  <div class="section">
+    <h3 class="section-title">Filters</h3>
+    <div class="checkbox-group">
+      <div class="checkbox-item">
+        <input type="checkbox" id="filterSelected" checked>
+        <label for="filterSelected">Selected</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3 class="section-title">Types</h3>
+    <div class="checkbox-group">
+      <div class="checkbox-item">
+        <input type="checkbox" id="includeSequences" checked>
+        <label for="includeSequences">Sequences</label>
+      </div>
+      <div class="checkbox-item">
+        <input type="checkbox" id="includeClips" checked>
+        <label for="includeClips">Clips</label>
+      </div>
+      <div class="checkbox-item">
+        <input type="checkbox" id="includeBins" checked>
+        <label for="includeBins">Bins</label>
+      </div>
+      <div class="checkbox-item">
+        <input type="checkbox" id="includeMisc" checked>
+        <label for="includeMisc">Misc.</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label for="renameMode">Type of Replacement:</label>
+    <select id="renameMode" onchange="updateModeUI()">
+      <option value="replace">Find and Replace</option>
+      <option value="front">Add to Front</option>
+      <option value="end">Add to End</option>
+      <option value="removeFront">Remove from Front</option>
+      <option value="remove">Remove from End</option>
+      <option value="replaceWithNumbers">Replace with Numbers</option>
+      <option value="addNumbersToEnd">Add Numbers to End</option>
+    </select>
+  </div>
+
+  <div id="findReplaceFields">
+    <div class="input-row">
+      <label for="findText">Find:</label>
+      <input type="text" id="findText" placeholder="Enter text to find" />
+    </div>
+    <div class="input-row">
+      <label for="replaceText">Replace:</label>
+      <input type="text" id="replaceText" placeholder="Replace with this text" />
+    </div>
+  </div>
+
+  <div id="prefixField" class="hidden">
+    <div class="input-row">
+      <label for="prefix">Add to Front:</label>
+      <input type="text" id="prefix" placeholder="e.g. CLIP_" />
+    </div>
+  </div>
+
+  <div id="suffixField" class="hidden">
+    <div class="input-row">
+      <label for="suffix">Add to End:</label>
+      <input type="text" id="suffix" placeholder="e.g. _v1" />
+    </div>
+  </div>
+
+  <div id="removeField" class="hidden">
+    <div class="input-row">
+      <label for="removeChars">Remove from End:</label>
+      <input type="text" id="removeChars" placeholder="e.g. .mp4" />
+    </div>
+  </div>
+
+  <div id="removeFrontField" class="hidden">
+    <div class="input-row">
+      <label for="removeFrontChars">Remove from Front:</label>
+      <input type="text" id="removeFrontChars" placeholder="e.g. CLIP_" />
+    </div>
+  </div>
+
+  <!-- New fields for Replace with Numbers -->
+  <div id="replaceWithNumbersField" class="hidden">
+    <div class="input-row">
+      <label for="numberFind">Find:</label>
+      <input type="text" id="numberFind" placeholder="Text to replace with numbers" />
+    </div>
+    <div class="input-row">
+      <label for="numberStartAt">Start At:</label>
+      <input type="text" id="numberStartAt" value="1" placeholder="e.g. 001, 01, 1" />
+    </div>
+  </div>
+
+  <!-- New fields for Add Numbers to End -->
+  <div id="addNumbersToEndField" class="hidden">
+    <div class="input-row">
+      <label for="endNumberStartAt">Start At:</label>
+      <input type="text" id="endNumberStartAt" value="1" placeholder="e.g. 001, 01, 1" />
+    </div>
+  </div>
+
+  <button onclick="applyRename()">Apply</button>
+  
+  <!-- Add this additional style for the feedback element -->
+  <style>
+    .feedback {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 15px;
+      border-radius: 4px;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 1000;
+      max-width: 300px;
+    }
+    
+    .feedback.success {
+      background-color: rgba(76, 175, 80, 0.9);
+    }
+    
+    .feedback.error {
+      background-color: rgba(244, 67, 54, 0.9);
+    }
+  </style>
+</body>
+
+</html>
+  

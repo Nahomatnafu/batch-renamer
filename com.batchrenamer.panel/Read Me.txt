@@ -1,0 +1,13 @@
+--------------READ ME--------------
+
+This template is a made for simple button-press script execution with Premiere Pro. From this, a more robust panel can be built out for script interaction. 
+
+To learn how to use this, please visit the Sample panel site on GitHub: https://github.com/Adobe-CEP/Samples/tree/master/PProPanel and follow instructions
+
+OR
+
+Learn on PremiereOnScript.com
+
+-----------------------------------
+
+The template was derived from the Adobe PPro Sample panel code. 
